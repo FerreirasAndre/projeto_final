@@ -1,7 +1,5 @@
-/* src/main.c
-   Compilar: make
-   Projeto: Produtor -> CP1 -> CP2 -> CP3 -> Consumidor
-*/
+
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,11 +10,11 @@
 #include <errno.h>
 
 #define BUFF_SIZE 5
-#define NFILES 50        /* número de arquivos que P deve processar; ajuste se quiser */
-#define MAT_N 10         /* ordem das matrizes */
+#define NFILES 50        //número de arquivos que P deve processar; ajuste se quiser
+#define MAT_N 10         //ordem das matrizes
 #define MAX_NAME 200
 
-/* números de threads por tipo conforme enunciado */
+//Define a quantidade de threads de cada etapa
 #define N_P 1
 #define N_CP1 5
 #define N_CP2 4
@@ -43,7 +41,6 @@ typedef struct {
 
 buffer_t shared[4];
 
-/* helper: init buffers */
 void init_buffers() {
     for (int i = 0; i < 4; i++) {
         shared[i].in = 0;
@@ -55,7 +52,7 @@ void init_buffers() {
     }
 }
 
-/* push pointer to buffer idx */
+
 void buffer_push(int idx, S* item) {
     sem_wait(&shared[idx].empty);
     sem_wait(&shared[idx].mutex);
@@ -65,7 +62,6 @@ void buffer_push(int idx, S* item) {
     sem_post(&shared[idx].full);
 }
 
-/* pop pointer from buffer idx */
 S* buffer_pop(int idx) {
     sem_wait(&shared[idx].full);
     sem_wait(&shared[idx].mutex);
@@ -76,12 +72,13 @@ S* buffer_pop(int idx) {
     return item;
 }
 
-/* parse matrix: espera MAT_N linhas com valores separados por vírgula ou espaço */
+
 int read_matrix_from_file(FILE* f, double M[MAT_N][MAT_N]) {
     char line[4096];
     for (int i = 0; i < MAT_N; i++) {
         if (!fgets(line, sizeof(line), f)) return -1;
-        /* permitir vírgulas ou espaços; trocar vírgula por espaço */
+
+     
         for (char *p = line; *p; ++p) if (*p == ',') *p = ' ';
         char *ptr = line;
         for (int j = 0; j < MAT_N; j++) {
@@ -96,9 +93,9 @@ int read_matrix_from_file(FILE* f, double M[MAT_N][MAT_N]) {
     return 0;
 }
 
-/* Producer: lê arquivo entrada.in com NFILES nomes (um por linha) */
+//Função Producer: lê arquivo entrada.in com NFILES nomes (um por linha)
 void* producer_thread(void* arg) {
-    const char* listfile = (const char*) arg; /* caminho para entrada.in */
+    const char* listfile = (const char*) arg; 
     FILE* fl = fopen(listfile, "r");
     if (!fl) {
         perror("Producer: fopen entrada.in");
@@ -108,7 +105,6 @@ void* producer_thread(void* arg) {
     char fname[512];
     int count = 0;
     while (count < NFILES && fgets(fname, sizeof(fname), fl)) {
-        /* trim newline */
         char *nl = strchr(fname, '\n');
         if (nl) *nl = '\0';
         if (strlen(fname) == 0) continue;
@@ -132,9 +128,8 @@ void* producer_thread(void* arg) {
         }
         fclose(fin);
 
-        /* coloca ponteiro no shared[0] */
+        //coloca ponteiro no shared[0]
         buffer_push(0, s);
-        //printf("[P] produced %s (count %d)\n", s->nome, ++count);
         fflush(stdout);
     }
     fclose(fl);
@@ -145,7 +140,7 @@ void* producer_thread(void* arg) {
     return NULL;
 }
 
-/* CP1: consume shared[0], calcula C = A*B, push em shared[1] */
+//CP1: consume shared[0], calcula C = A*B, push em shared[1]
 void* cp1_thread(void* arg) {
     int tid = *(int*)arg;
     (void)tid;
@@ -156,7 +151,7 @@ void* cp1_thread(void* arg) {
                 buffer_push(1, NULL);
             } break;
         }
-        /* multiplicacao matricial */
+        // multiplicacao matricial
         for (int i = 0; i < MAT_N; i++) {
             for (int j = 0; j < MAT_N; j++) {
                 double sum = 0.0;
@@ -172,7 +167,7 @@ void* cp1_thread(void* arg) {
     return NULL;
 }
 
-/* CP2: consume shared[1], calcula V = soma das colunas de C, push em shared[2] */
+//CP2: consume shared[1], calcula V = soma das colunas de C, push em shared[2]
 void* cp2_thread(void* arg) {
     int tid = *(int*)arg;
     (void)tid;
@@ -203,7 +198,7 @@ void* cp2_thread(void* arg) {
     return NULL;
 }
 
-/* CP3: consume shared[2], calcula E = soma de V, push em shared[3] */
+//CP3: consume shared[2], calcula E = soma de V, push em shared[3]
 void* cp3_thread(void* arg) {
     int tid = *(int*)arg;
     (void)tid;
@@ -231,7 +226,7 @@ void* cp3_thread(void* arg) {
 return NULL; 
 }
 
-/* Consumer final: escreve saida.out e faz contagem; quando chega a NFILES, termina */
+//Função Consumer final: escreve saida.out e faz contagem; quando chega a NFILES, termina
 void* consumer_thread(void* arg) {
     const char* outpath = (const char*)arg;
     FILE* fout = fopen(outpath, "w");
@@ -243,7 +238,8 @@ void* consumer_thread(void* arg) {
     while (local_count < NFILES) {
         S* s = buffer_pop(3);
         if (!s) continue;
-        /* Escrever no formato solicitado */
+
+        //Formatação dos prints de saída
         fprintf(fout, "================================\n");
         fprintf(fout, "Entrada: %s;\n", s->nome);
         fprintf(fout, "--------------------------\n");
@@ -284,7 +280,7 @@ void* consumer_thread(void* arg) {
         fprintf(fout, "================================\n\n");
         fflush(fout);
 
-        free(s); /* libera a struct alocada por P */
+        free(s); // libera a struct alocada por P
         local_count++;
         printf("[C] Escreveu %s (contador C = %d)\n", s->nome, local_count);
         fflush(stdout);
@@ -294,7 +290,7 @@ void* consumer_thread(void* arg) {
     return NULL;
 }
 
-/* cleanup: sem_destroy */
+
 void cleanup() {
     for (int i = 0; i < 4; i++) {
         sem_destroy(&shared[i].full);
@@ -303,8 +299,8 @@ void cleanup() {
     }
 }
 
+   //espera: ./program entrada.in output/saida.out
 int main(int argc, char** argv) {
-    /* espera: ./program entrada.in output/saida.out */
     const char* listfile = "input/entrada.in";
     const char* outpath = "output/saida.out";
     if (argc >= 2) listfile = argv[1];
@@ -316,7 +312,7 @@ int main(int argc, char** argv) {
     pthread_t tCP1[N_CP1], tCP2[N_CP2], tCP3[N_CP3];
     int ids_cp1[N_CP1], ids_cp2[N_CP2], ids_cp3[N_CP3];
 
-    /* cria threads */
+    //cria threads
     if (pthread_create(&tP, NULL, producer_thread, (void*)listfile) != 0) {
         perror("pthread_create P");
         exit(1);
@@ -331,22 +327,15 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    /* Pai espera a thread C terminar */
+    //Pai espera a thread C terminar
     pthread_join(tC, NULL);
     printf("[main] C terminou. Liberando CP threads e encerrando.\n");
-
-    /* cancelar as threads que estão em loop infinito (CP1, CP2, CP3 e P) */
-    // for (int i = 0; i < N_CP1; i++) pthread_cancel(tCP1[i]);
-    // for (int i = 0; i < N_CP2; i++) pthread_cancel(tCP2[i]);
-    // for (int i = 0; i < N_CP3; i++) pthread_cancel(tCP3[i]);
-    // pthread_cancel(tP);
 
     pthread_join(tP, NULL);
     for (int i = 0; i < N_CP1; i++) pthread_join(tCP1[i], NULL);
     for (int i = 0; i < N_CP2; i++) pthread_join(tCP2[i], NULL);
     for (int i = 0; i < N_CP3; i++) pthread_join(tCP3[i], NULL);
     
-
     cleanup();
     printf("[main] finalizado e limpou recursos\n");
     return 0;
