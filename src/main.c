@@ -176,12 +176,19 @@ void* cp1_thread(void* arg) {
 void* cp2_thread(void* arg) {
     int tid = *(int*)arg;
     (void)tid;
+    int sentinelas_necessarios = N_CP1;
+
     while (1) {
         S* s = buffer_pop(1);
         if (!s) { 
-            for (int i = 0; i < N_CP3; i++) {
-                buffer_push(2, NULL);
-            } break;
+            sentinelas_necessarios--;
+            if (sentinelas_necessarios == 0) {
+                for (int i = 0; i < N_CP3; i++) {
+                    buffer_push(2, NULL);
+                } 
+                break;
+            }
+            continue;
         }
 
         for (int j = 0; j < MAT_N; j++) {
@@ -200,21 +207,28 @@ void* cp2_thread(void* arg) {
 void* cp3_thread(void* arg) {
     int tid = *(int*)arg;
     (void)tid;
+    int sentinelas_necessarios = N_CP2;
     while (1) {
         S* s = buffer_pop(2);
-         if (!s) { 
-            for (int i = 0; i < N_C; i++) {
-                buffer_push(3, NULL);
-            } break;
+        if (!s) { 
+            sentinelas_necessarios--;
+            if (sentinelas_necessarios == 0) {
+                for (int i = 0; i < N_C; i++) {
+                    buffer_push(3, NULL);
+            } 
+            break; 
         }
-        double sum = 0.0;
-        for (int i = 0; i < MAT_N; i++) sum += s->V[i];
-        s->E = sum;
-        printf("[CP3_%d] Processou %s -> calculou E=%.6f\n", tid, s->nome, s->E);
-        fflush(stdout);
-        buffer_push(3, s);
+        continue;
     }
-    return NULL;
+        double sum = 0.0;
+        for (int i = 0; i < MAT_N; i++) sum += s->V[i]; 
+            s->E = sum;
+            printf("[CP3_%d] Processou %s -> calculou E=%.6f\n", tid, s->nome, s->E);
+            fflush(stdout);
+            buffer_push(3, s);
+        } 
+
+return NULL; 
 }
 
 /* Consumer final: escreve saida.out e faz contagem; quando chega a NFILES, termina */
@@ -319,7 +333,7 @@ int main(int argc, char** argv) {
 
     /* Pai espera a thread C terminar */
     pthread_join(tC, NULL);
-   printf("[main] C terminou. Liberando CP threads e encerrando.\n");
+    printf("[main] C terminou. Liberando CP threads e encerrando.\n");
 
     /* cancelar as threads que estão em loop infinito (CP1, CP2, CP3 e P) */
     // for (int i = 0; i < N_CP1; i++) pthread_cancel(tCP1[i]);
